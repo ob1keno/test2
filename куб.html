@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AISWARMIN — Куб</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0f;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            perspective: 1200px;
+            cursor: grab;
+        }
+        body:active {
+            cursor: grabbing;
+        }
+
+        /* Сцена */
+        .scene {
+            width: 350px;
+            height: 350px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.1s linear;
+        }
+
+        /* Куб */
+        .cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Грань */
+        .face {
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            background: #111118;
+            border: 2px solid #222;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            backface-visibility: visible;
+            transition: all 0.5s ease;
+            cursor: pointer;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .face:hover {
+            border-color: #00ff88;
+            box-shadow: 0 0 40px rgba(0, 255, 136, 0.2);
+            background: #151520;
+        }
+
+        /* Позиции граней */
+        .front {
+            transform: translateZ(175px);
+        }
+        .back {
+            transform: rotateY(180deg) translateZ(175px);
+        }
+        .right {
+            transform: rotateY(90deg) translateZ(175px);
+        }
+        .left {
+            transform: rotateY(-90deg) translateZ(175px);
+        }
+        .top {
+            transform: rotateX(90deg) translateZ(175px);
+        }
+        .bottom {
+            transform: rotateX(-90deg) translateZ(175px);
+        }
+
+        /* Иконка грани */
+        .face-icon {
+            font-size: 3rem;
+            opacity: 0.9;
+            transition: all 0.4s;
+        }
+        .face:hover .face-icon {
+            transform: scale(1.2);
+        }
+        .face-name {
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            color: #fff;
+        }
+        .face-time {
+            font-size: 0.8rem;
+            color: #666;
+            transition: color 0.4s;
+        }
+        .face:hover .face-time {
+            color: #00ff88;
+        }
+
+        /* Частицы на грани */
+        .parts-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            justify-content: center;
+            max-width: 250px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.5s ease;
+        }
+        .face:hover .parts-container {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .part {
+            background: #1a1a25;
+            border: 1px solid #2a2a35;
+            border-radius: 20px;
+            padding: 4px 10px;
+            font-size: 0.65rem;
+            color: #888;
+            transition: all 0.3s;
+        }
+        .face:hover .part {
+            border-color: #00ff8822;
+            color: #ccc;
+            background: #1a1a30;
+        }
+
+        /* Отдельная частица в воздухе при разборке */
+        .exploded-parts {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            transform-style: preserve-3d;
+        }
+        .exploded-part {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #00ff88;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            opacity: 0;
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 0 6px #00ff88;
+        }
+        .face.exploding .exploded-part {
+            opacity: 1;
+        }
+
+        /* UI */
+        .ui-top {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            letter-spacing: 3px;
+            font-size: 1rem;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .ui-top span {
+            color: #00ff88;
+        }
+        .ui-hint {
+            position: fixed;
+            bottom: 20px;
+            color: #555;
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            z-index: 10;
+            pointer-events: none;
+            text-align: center;
+            width: 100%;
+        }
+        .ui-cta {
+            position: fixed;
+            bottom: 60px;
+            right: 20px;
+            padding: 12px 25px;
+            border: 2px solid #00ff88;
+            color: #00ff88;
+            text-decoration: none;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            z-index: 10;
+            background: #0a0a0fcc;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s;
+        }
+        .ui-cta:hover {
+            background: #00ff88;
+            color: #000;
+        }
+
+        @media (max-width: 500px) {
+            .scene {
+                width: 280px;
+                height: 280px;
+            }
+            .face {
+                width: 280px;
+                height: 280px;
+            }
+            .front {
+                transform: translateZ(140px);
+            }
+            .back {
+                transform: rotateY(180deg) translateZ(140px);
+            }
+            .right {
+                transform: rotateY(90deg) translateZ(140px);
+            }
+            .left {
+                transform: rotateY(-90deg) translateZ(140px);
+            }
+            .top {
+                transform: rotateX(90deg) translateZ(140px);
+            }
+            .bottom {
+                transform: rotateX(-90deg) translateZ(140px);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ui-top"><span>AISWARMIN</span> • КУБ</div>
+    <div class="ui-hint">◉ двигай мышью ◉ наведи на грань ◉</div>
+    <a href="#" class="ui-cta">● СБОРКА</a>
+
+    <div class="scene" id="scene">
+        <div class="cube" id="cube">
+            <!-- Передняя: Дизайн -->
+            <div class="face front" data-module="design">
+                <div class="face-icon">◆</div>
+                <div class="face-name">ДИЗАЙН</div>
+                <div class="face-time">⌛ 2 часа</div>
+                <div class="parts-container">
+                    <span class="part">Сетка</span><span class="part">Цвета</span><span class="part">Шрифты</span><span class="part">Анимации</span>
+                </div>
+            </div>
+
+            <!-- Задняя: Код -->
+            <div class="face back" data-module="code">
+                <div class="face-icon">⬡</div>
+                <div class="face-name">КОД</div>
+                <div class="face-time">⌛ 5 часов</div>
+                <div class="parts-container">
+                    <span class="part">React</span><span class="part">Node</span><span class="part">API</span><span class="part">База</span>
+                </div>
+            </div>
+
+            <!-- Правая: Деплой -->
+            <div class="face right" data-module="deploy">
+                <div class="face-icon">⬢</div>
+                <div class="face-name">ДЕПЛОЙ</div>
+                <div class="face-time">⌛ 1 час</div>
+                <div class="parts-container">
+                    <span class="part">VPS</span><span class="part">Docker</span><span class="part">SSL</span><span class="part">CI/CD</span>
+                </div>
+            </div>
+
+            <!-- Левая: AI -->
+            <div class="face left" data-module="ai">
+                <div class="face-icon">◈</div>
+                <div class="face-name">AI-ТЕСТЫ</div>
+                <div class="face-time">⌛ 30 мин</div>
+                <div class="parts-container">
+                    <span class="part">Тесты</span><span class="part">Баги</span><span class="part">SEO</span><span class="part">A11y</span>
+                </div>
+            </div>
+
+            <!-- Верхняя: Оператор -->
+            <div class="face top" data-module="operator">
+                <div class="face-icon" style="font-size:4rem;">⬤</div>
+                <div class="face-name">ОПЕРАТОР</div>
+                <div class="face-time" style="color:#00ff88;">Это я</div>
+                <div class="parts-container">
+                    <span class="part" style="border-color:#00ff88;color:#00ff88;">AISWARMIN</span>
+                </div>
+            </div>
+
+            <!-- Нижняя: Результат -->
+            <div class="face bottom" data-module="result">
+                <div class="face-icon" style="font-size:3rem;">✓</div>
+                <div class="face-name">ГОТОВО</div>
+                <div class="face-time" style="color:#00ff88;">За 1 день</div>
+                <div class="parts-container">
+                    <span class="part" style="border-color:#00ff88;color:#00ff88;">Продукт</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const scene = document.getElementById('scene');
+        const cube = document.getElementById('cube');
+        let rotX = -25;
+        let rotY = 35;
+        let targetRotX = rotX;
+        let targetRotY = rotY;
+
+        // Слежение за мышью
+        document.addEventListener('mousemove', (e) => {
+            const x = (e.clientX / window.innerWidth - 0.5) * 2;
+            const y = (e.clientY / window.innerHeight - 0.5) * 2;
+            targetRotY = 35 + x * 40;
+            targetRotX = -25 - y * 30;
+        });
+
+        // Тач
+        document.addEventListener('touchmove', (e) => {
+            const touch = e.touches[0];
+            const x = (touch.clientX / window.innerWidth - 0.5) * 2;
+            const y = (touch.clientY / window.innerHeight - 0.5) * 2;
+            targetRotY = 35 + x * 40;
+            targetRotX = -25 - y * 30;
+        }, { passive: true });
+
+        // Плавная анимация
+        function animate() {
+            rotX += (targetRotX - rotX) * 0.08;
+            rotY += (targetRotY - rotY) * 0.08;
+            scene.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // Авто-вращение когда мышь не двигается
+        let idle = true;
+        let idleTimeout;
+        document.addEventListener('mousemove', () => {
+            idle = false;
+            clearTimeout(idleTimeout);
+            idleTimeout = setTimeout(() => { idle = true; }, 2000);
+        });
+
+        setInterval(() => {
+            if (idle) {
+                targetRotY += 0.3;
+                targetRotX += Math.sin(Date.now() * 0.001) * 0.1;
+            }
+        }, 16);
+
+        // Клик по грани — "сборка"
+        document.querySelectorAll('.face').forEach(face => {
+            face.addEventListener('click', function() {
+                const module = this.dataset.module;
+                // Подсветка
+                this.style.borderColor = '#00ff88';
+                this.style.boxShadow = '0 0 60px rgba(0,255,136,0.5)';
+                setTimeout(() => {
+                    this.style.borderColor = '#222';
+                    this.style.boxShadow = 'none';
+                }, 600);
+
+                // Крутануть куб к этой грани
+                const rotations = {
+                    design: { x: 0, y: 0 },
+                    code: { x: 0, y: 180 },
+                    deploy: { x: 0, y: 90 },
+                    ai: { x: 0, y: -90 },
+                    operator: { x: -90, y: 0 },
+                    result: { x: 90, y: 0 },
+                };
+                const r = rotations[module];
+                targetRotX = r.x;
+                targetRotY = r.y;
+            });
+        });
+    </script>
+</body>
+</html>
